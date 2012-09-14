@@ -1,0 +1,274 @@
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+
+#
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+# ident	"@(#)README	1.6	09/03/04 SMI"
+#
+
+Solaris NIC Driver Test Suite
+
+################################################################################
+## Overview
+################################################################################
+
+This (nicdrv) is a test suite designed to test Network Interface Card drivers.
+This test suite uses the STF test harness and operates in the standard manner.
+Brief instructions follow on how to interact with this test suite.
+
+1. Operation Modes:
+
+   This test suite has two modes of operation:
+        standalone,
+        two-host (most of the tests)
+
+
+2. Test Cases Included:
+
+        (1) functional: used to ensure that a NIC driver works properly, to
+            test the primary functionality of a NIC driver, including FTP,
+            netperf+snoop, ping, NFS, ip_multicast, setting of ndd parameters,
+            working-mode testing, statistics, vlan, and link aggregation.
+
+        (2) stress: used to stress a NIC driver to verify the driver's 
+            stability, including loading and unloading of the driver module 
+            and net traffic stress.
+
+The "doc/nicdrv.assert" file documents the assertion verified by each
+test case.
+
+
+3. Directory Organization:
+   nicdrv/ -+--- doc: test assertions and other docs
+            |
+            +--- include: common libs that are included in test code
+            |
+            +--- tests: test code
+            |
+            +--- tools:  common tools that are called by test code
+
+
+4. For some planned features and known issues, please refer to the ReleaseNote
+file in the "doc" directory.
+
+#############################################################
+## Hardware requirements
+#############################################################
+Two machines, consisting of one server and one client are required.
+The server is the DUT (Device Under Test) and the client is the SAP 
+(System As Peer). 
+
+* The client should have faster CPU and larger memory size
+  than Server.  (It will give Server a bigger stress.)
+
+* If possible, each machine can have two NIC cards of different types:
+
+One interface (NIC1) on the server is the test target, which is directly
+connected to the client.  If the NICs don't support mdi/mdix, cross-over
+cables should be used.
+
+Another interface (NIC0) is connected with external network for command 
+control.  You can also use the system console for this purpose.
+
+A conceptual picture of the test setup is below:
+
++----------------+                                   +-------------+
+|                |         command control           |             |
+| Server  (NIC0)-|<---------external network-------->| Client      |
+|                |                                   |             |
+| (DUT)   (NIC1)-|<---------tested network---------->|             |
++----------------+          NIC under test           +-------------+ 
+
+NIC1 is the network interface under test.
+
+
+* If the server and client interfaces under test are connected through a 
+  network switch with VLAN supported, the VLAN test case of this test
+  suite requires configuring the two ports on the switch into the 
+  following VLAN: 30,31,32,33,34,35,36,37,38,39.  If the switch does not
+  support VLAN, it must be configured to broadcast mode for VLAN. 
+
+Please refer to the user guide of the switch to configure VLAN.
+
+#############################################################
+##  Software requirements
+#############################################################
+
+* You should have installed Solaris and driver binaries successfully on 
+  both machines.  Ensure the driver under test has the correct version.
+
+* This test suite should be run as the root user.  During test execution,
+  the NIC driver under test will be 'removed,' so if all of the NICs on 
+  the system are associated with the same type of driver, please use 
+  the console to run the test, because the network may be disconnected. 
+
+* Download and install Solaris Test Framework (STF) packages on server. 
+        http://opensolaris.org/os/community/testing/testsuites/stf/
+
+    root# pkgadd -d <package-location> SUNWstc-checkenv
+    root# pkgadd -d <package-location> SUNWstc-stf
+
+* Install netperf on server.
+
+For Sun internal users, install the SUNWstc-netperf2 package.
+    root# pkgadd -d <package-location> SUNWstc-netperf2
+
+For external users, install netperf from http://www.netperf.org.
+For instructions on how to build netperf, please refer to the
+INSTALL file in netperf directory.  The recommended netperf 
+version to use for this test suite is 2.4.0
+
+* Set env for root user on server
+
+    root# PATH=/usr/ccs/bin:/opt/SUNWstc-stf/bin/`isainfo -n`:$PATH;
+    root# export PATH
+
+* The server and client should be able to use rsh to access each 
+  other by root, and they should also be able to ping each other
+  by hostname.  To set this up,
+
+  .  Modify the ~root/.rhosts as applicable, e.g. add 
+         "<peer's ip_address> root"
+     or  "<peer's hostname> root"
+     to the ~root/.rhosts file.
+
+     (Security warning: if you simply put a "+" in the ~root/.rhosts file,
+     it means "every user from every machine" is authorized to rsh-in as
+     'root'.  Please use caution when making this entry in the .rhosts.)
+
+   . On both server and client side, enable this network service:
+        root# svcadm enable -r -s svc:/network/shell:default
+
+   . Append the hostname and corresponding IP address of client or server to the
+     /etc/hosts file.
+
+* Ensure the nwam service is disabled on both server and client side.
+
+	root# svcadm disable svc:/network/physical:nwam
+	root# svcadm enable svc:/network/physical:default
+
+* Ensure that the default system locale on both client and server are C, You
+  can change the default system locale by setting LANG=C in /etc/default/init 
+  file.
+
+#############################################################
+## How to Run:
+#############################################################
+
+1: Install or build nicdrv test suite
+
+You can run the nicdrv test suite either from a binary package or the
+source workspace. The following shows how to install the nicdrv package.
+If a package is not available, see Appendix A for instructions on how
+to build the nicdrv test suite. 
+
+* Install NICDRV package.
+
+    root# pkgadd -d <package-location> SUNWstc-driver-nicdrv
+
+* Change to <SUITE_ROOT> directory where the NICDRV package is installed.
+
+    root# cd /opt/SUNWstc-driver-nicdrv
+
+2: Check if the client has different architecture from the server.
+    root# isainfo -n
+
+Beginning with version 1.7 of the test suite, it is now possible
+to perform cross-platform testing by simply installing the test
+suite packages for both SPARC and x86 architectures directly on
+the 'server' machine.
+
+Generally, the server and the client have the same CPU architecture
+(i.e., both are X86 or SPARC).  However, for cross-platform testing,
+where the server's CPU architecture is different from the client's,
+it is necessary to install the test suite binaries corresponding to
+both architectures on the server system.  Beginning with STC_VERSION 
+1.7, it is possible to install both SPARC and x86 packages on a 
+single system using pkgadd(1M).  For example, if the client is an 
+amd64 system and the server is a SPARC machine, then install both
+the sparc and i386 packages on the server:
+
+  root@server# pkgadd -d <sparc-package-location> SUNWstc-driver-nicdrv
+  root@server# pkgadd -d <i386-package-location>  SUNWstc-driver-nicdrv
+
+3: Configure test suites
+Please set the appropriate values for the mandatory variables
+specified in <SUITE_ROOT>/config.vars using 'stf_configure -c'
+or 'stf_configure -f'
+
+The following options need to be changed:
+
+TST_INT=
+TST_NUM=
+RMT_INT=
+RMT_NUM=
+LOCAL_HST=
+RMT_HST=
+TST_PASS=
+NETPERF_HOME=
+RUN_MODE=
+
+For details on the options listed above, please refer to comments of
+the config.vars file.
+
+In the <SUITE_ROOT> directory, run: 
+	user$ stf_configure
+
+4: Execute the test suites still in the <SUITE_ROOT> directory
+
+  	user$ stf_execute -m `isainfo -n`
+
+5: Examine the results
+While the test is being executed, you can view the journal file at:
+/var/tmp/SUNstc-driver-nicdrv/results, for example 
+"tail -f /var/tmp/SUNWstc-driver-nicdrv/results/journal.hostname1.20070821185114.execute.i386"
+(The exact name of the journal file being used will be printed to
+the terminal by 'stf_execute')
+
+Appendix A:
+
+#############################################################
+## How to Build Test Suite
+#############################################################
+
+* Add C compiler and STF path to environment.
+
+user$ PATH=/opt/SUNWspro/bin:/opt/SUNWstc-stf/bin/`isainfo -n`:$PATH;
+user$ export PATH
+
+* Change to nicdrv source directory.  Below, WS_ROOT refers to the
+root of the STC workspace which contains the nicdrv test suite source.
+
+user$ cd <WS_ROOT>/usr/src/suites/net/nicdrv
+
+* Build the nicdrv test suite.
+
+user$ stf_build package
+
+* Install the package on the test system(s)
+
+root# pkgadd -d <WS_ROOT>/packages/`uname -p`  SUNWstc-driver-nicdrv 
+
+Now you can follow the instructions given earlier in this README for
+configuring and executing the test suite.
+

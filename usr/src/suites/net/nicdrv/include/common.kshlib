@@ -1,0 +1,1413 @@
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+
+#
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+# ident	"@(#)common.kshlib	1.7	09/06/24 SMI"
+#
+
+LOGDIR="${STF_RESULTS}/tmp/common"
+if [ ! -d $LOGDIR ]; then
+	mkdir -p $LOGDIR
+fi
+
+#
+# print basic test environment information
+#
+print_test_env()
+{
+	echo "------------------------------------------"
+	echo "----- Print Local Host Configuration -----"
+	echo "------------------------------------------"
+	uname -a
+	cat /etc/motd | grep bfu
+	cat /etc/release | grep Solaris | sed -e "s/[ ][ ]//g"
+	modinfo | grep -w $TST_INT
+	if [ $SYSINFO_PRINT = "yes" ]; then
+		ifconfig -a
+		netstat -rn
+		prtconf -vp
+	fi
+	echo "------------------------------------------"
+	echo "----- Print Remote Host Configuration ----"
+	echo "------------------------------------------"
+	rsh -n -l root $RMT_HST uname -a
+	rsh -n -l root $RMT_HST cat /etc/motd | grep bfu
+	rsh -n -l root $RMT_HST cat /etc/release | \
+		grep Solaris | sed -e "s/[ ][ ]//g"
+	rsh -n -l root $RMT_HST modinfo | grep -w $RMT_INT
+	if [ $SYSINFO_PRINT = "yes" ]; then
+		rsh -n -l root $1 ifconfig -a
+		rsh -n -l root $1 netstat -rn
+		rsh -n -l root $1 prtconf -vp
+	fi
+	echo "------------------------------------------"
+}
+
+#
+# The dtrace_start will enable all dtrace probes of the driver
+# and will account the number of function called in given test case
+# $1 is the test case number
+# $2 is the test driver name
+#
+DRV_ALL_FUNC_LOG=/tmp/driver_all_func.tmp.log
+dtrace_start()
+{
+	if [ $DTRACE_SWITCH = "yes" ]; then
+	typeset logfile=/tmp/drv_called_func_num_$1.tmp.log
+        dtrace -l -n $2::entry | awk '{print $4}' > $DRV_ALL_FUNC_LOG
+		if [ -f "$logfile" ]; then
+			rm -f $logfile
+		fi
+        	dtrace -o $logfile \
+			-Z -w -n fbt:${TST_INT}::entry'{@[probefunc]=count()}' &
+	fi
+}
+
+#
+# The dtrace_end will generate code coverage report for driver
+# $1 is pid of dtrace
+# $2 is the test case number
+#
+dtrace_end()
+{
+	if [ $DTRACE_SWITCH = "yes" ]; then
+		typeset logfile=/tmp/drv_called_func_num_$2.tmp.log
+		while [[ ! -f $logfile ]]; do
+			sleep 1
+		done
+        	kill -15 $1
+        	wait $1
+        	cat $logfile | \
+			awk '{print $1}' > /tmp/driver_called_func.tmp.log 2>&1
+        	echo "===== Code Coverage Report Starts ====="
+		cat $logfile
+		echo "--------------------------------------------------------"
+        	${STF_SUITE}/tools/summary/dt_parse $logfile
+        	echo "===== Code Coverage Report Done ====="
+	fi
+}
+
+#
+# Using stf_filter generate test summary while test finished
+#
+test_summary()
+{
+	result_path=${STF_RESULTS}
+	ls -t $result_path | read cur_journal
+        stf_filter $result_path/$cur_journal 2>&1 > /tmp/summary.tmp
+	cat /tmp/summary.tmp
+}
+
+#
+# Check the client side is alive and the netlink is up
+# $1 local hostname (server)
+# $2 remote hostname (client)
+#
+check_host_alive()
+{
+	retry_cnt=0
+	while true
+	do
+		ping $2
+		if [ $? -eq 0 ]; then
+			break
+		else
+			if [ $retry_cnt -gt 20 ]; then
+				return 1
+			fi
+			sleep 2
+		fi
+		retry_cnt=`expr $retry_cnt + 1`
+	done
+
+	# Check rsh client
+        retry_cnt=0
+        while true
+        do
+                rsh -n $2 "ping $1" > /tmp/tmp_check_alive.$$ 2>&1
+                grep "alive" /tmp/tmp_check_alive.$$
+                if [ $? -eq 0 ]; then
+                        rm -f /tmp/tmp_check_alive.$$
+                        break
+                else
+                        # rsh ping FAIL
+                        rm -f /tmp/tmp_check_alive.$$
+                        if [ $retry_cnt -gt 20 ]; then
+                                return 1
+                        fi
+                        sleep 2
+                fi
+		retry_cnt=`expr $retry_cnt + 1`
+        done
+
+	# alive PASS
+	return 0
+}
+
+#
+# Check the whether a given SMF service is online
+# $1 hostname
+# $2 servicename
+#
+smf_service_is_online()
+{
+	STATUS=`rsh -n $1 svcs -a | \
+	    grep $2 | \
+	    awk '{print $1}'`
+
+	if [ $STATUS = "online" ]; then
+		return 0
+	else
+		return 1
+	fi
+
+}
+
+#
+# Record the error counter of kstat for checking
+# $1 local driver name
+# $2 local instance name
+#
+record_kstat_err()
+{
+	kstat -p $1:$2 > $LOGDIR/kstat_err_ori
+	return 0
+}
+
+
+#
+# Process a given error counter of kstat
+# $1 driver name
+# $2 instance name
+# $3 counter name
+# 
+process_kstat_error_counter()
+{
+	value=`kstat -p $1:$2 | grep $3 | awk '{print $2}' | uniq`
+	ori_value=`grep $3 $LOGDIR/kstat_err_ori \
+			| awk '{print $2}' | uniq`
+	if [ -z "$ori_value" ]; then
+		echo "UNSUPPORT check $3"
+		return 0
+	fi
+
+	if [ $value -gt $ori_value ]; then
+		echo "Found an increased error counter: \
+			$3 = $value from $ori_value"
+		echo "$3 = $value" >> /tmp/kstat_$1$2.tmp
+		return 1
+	else
+		echo "$3 = $value"
+		return 0
+	fi
+
+}
+
+#
+# Check the error counter of kstat
+# $1 local driver name
+# $2 local instance name
+#
+check_kstat_err()
+{
+	if [ ! -f $LOGDIR/kstat_err_ori ]; then
+		echo "Please call record_kstat_err first. Unchecked!"
+		return 0
+	fi
+	
+	process_kstat_error_counter $1 $2 ierrors
+	process_kstat_error_counter $1 $2 oerrors
+	process_kstat_error_counter $1 $2 align_errors
+	process_kstat_error_counter $1 $2 carrier_errors
+	process_kstat_error_counter $1 $2 toolong_errors
+	process_kstat_error_counter $1 $2 fcs_errors
+
+	rm -f $LOGDIR/kstat_err_ori
+	if [ -f /tmp/kstat_$1$2.tmp ]; then
+		echo "Found following error counter by kstat -p $1:$2 -s"
+		cat /tmp/kstat_$1$2.tmp
+		rm -f /tmp/kstat_$1$2.tmp
+		return 1
+	fi
+	check_ierror $1 $2
+        if [ $? -eq 1 ]; then
+                return 1
+        fi
+        return 0
+}
+
+#
+# Record the error counter of netstat before checking
+# $1 driver name
+# $2 instance name
+#
+record_netstat_err()
+{
+	netstat -I $1$2 -s > $LOGDIR/netstat_err_ori
+	return 0
+}
+
+#
+# Process a given error counter of netstat
+# $1 Interface name
+# $2 Counter name
+# $3 the position of "=" in netstat output
+# 
+process_netstat_error_counter()
+{
+	case $3 in
+		"1") value=`netstat -I $1 -s | grep "^.*$2" \
+			| awk -F"=" '{print $2}' \
+			| awk '{print $1}' | uniq | sed -n '1p'`
+		     ori_value=`grep "^.*$2" $LOGDIR/netstat_err_ori \
+			| awk -F"=" '{print $2}' \
+			| awk '{print $1}' | uniq | sed -n '1p'`;;
+		"2") value=`netstat -I $1 -s | grep "\ .*$2" \
+			| awk -F"=" '{print $3}' \
+			| awk '{print $1}' | uniq | sed -n '1p'`
+		     ori_value=`grep "\ .*$2" $LOGDIR/netstat_err_ori \
+			| awk -F"=" '{print $3}' \
+			| awk '{print $1}' | uniq | sed -n '1p'`;;
+	esac
+	if [ -z "$ori_value" ]; then
+		echo "UNSUPPORT check $3"
+		return 0
+	fi
+
+	if [ $value -gt $ori_value ]; then
+		echo "Found an increased error \
+			counter: $2 = $value from $ori_value"
+		echo "$2 = $value" >> /tmp/netstat_$1.tmp
+		return 1
+	else
+		echo "$2 = $value"
+		return 0
+	fi
+
+}
+
+#
+# Check the error counter of netstat
+# $1 driver name
+# $2 instance name
+#
+check_netstat_err()
+{
+	if [ ! -f $LOGDIR/netstat_err_ori ]; then
+		echo "Please call record_netstat_err first. Unchecked!"
+		return 0
+	fi
+# RAWIP
+	process_netstat_error_counter $1$2 rawipInCksumErrs 1
+
+# IPV4
+	process_netstat_error_counter $1$2 ipInHdrErrors 2
+	process_netstat_error_counter $1$2 ipInAddrErrors 1
+	process_netstat_error_counter $1$2 ipInCksumErrs 2
+	process_netstat_error_counter $1$2 tcpInErrs 1
+	process_netstat_error_counter $1$2 udpInCksumErrs 1
+
+# IPv6
+	process_netstat_error_counter $1$2 ipv6InHdrErrors 2
+	process_netstat_error_counter $1$2 ipv6InTooBigErrors 1
+	process_netstat_error_counter $1$2 ipv6InAddrErrors 1
+
+# ICMPv4
+	process_netstat_error_counter $1$2 icmpInCksumErrs 1
+
+# ICMPv6
+	process_netstat_error_counter $1$2 sctpChecksumError 6
+
+	rm -f $LOGDIR/netstat_err_ori
+
+	if [ -f /tmp/netstat_$1$2.tmp ]; then
+		echo "Found following error counter by netstat -I $1$2 -s"
+		cat /tmp/netstat_$1$2.tmp
+		rm -f /tmp/netstat_$1$2.tmp
+		return 1
+	fi
+
+	return 0
+
+}
+
+
+#
+# Check the the given driver whether support vlan on given host
+# $1 host name
+# $2 driver name
+# $3 instance number
+#
+check_vlan_support()
+{
+	typeset error=`rsh -n $1 "dladm show-vlan > /dev/null 2>&1; echo \\\$?"`
+	if [ $error -eq 0 ]; then
+		rsh -n $1 "dladm create-vlan -l $2$3 -v 3"
+	fi
+	rm -f /tmp/vlan_$1_$2.tmp
+	rsh -n $1 "ifconfig ${2}300${3} plumb up"
+	rsh -n $1 "ifconfig -a | grep ${2}300${3}" > /tmp/vlan_$1_$2_$3.tmp
+	vlan_int=`cat /tmp/vlan_$1_$2_$3.tmp | awk -F: '{print $1}'`
+	if [ "$vlan_int" != ${2}300${3} ]; then
+		echo "Interface ${2}${3} on host ${1} doesn't support vlan"
+		return 1
+	fi
+
+	rsh -n $1 "ifconfig ${2}300${3} unplumb"
+	rsh -n $1 "ifconfig -a | grep ${2}300${3}" > /tmp/vlan_$1_$2_$3.tmp
+	vlan_int=`cat /tmp/vlan_$1_$2_$3.tmp | awk -F: '{print $1}'`
+	if [ "$vlan_int" = ${2}300${3} ]; then
+		echo "Interface ${2}300${3} on host $1 unplumb failed"
+		return 1
+	fi
+
+	echo "Interface ${2}${3} on host ${1} supports vlan..."
+	rm -f /tmp/vlan_$1_$2_$3.tmp
+	error=`rsh -n $1 "dladm show-vlan > /dev/null 2>&1; echo \\\$?"`
+	if [ $error -eq 0 ]; then
+		rsh -n $1 "dladm delete-vlan ${2}300${3}"
+	fi
+	return 0
+}
+
+#
+# Check the the link speed of given interface
+# $1 driver name
+# $2 instance number
+# Return link speed, if can't get link speed, return string "0"
+#
+get_linkspeed()
+{
+        link_speed=`kstat -p $1:$2 | \
+                grep ifspeed | grep mac | awk '{print $2}' `
+        if [ -z "$link_speed" ]; then
+                echo 0
+        else
+                link_speed=`expr $link_speed / 1000000`
+                echo $link_speed
+        fi
+}
+
+#
+# Check the ierror number is calculated correctly
+# $1 device driver name
+# $2 device driver interface number
+# return value 0 when ierror is equal to the sum of all input errors
+#              1 when ierror is not equal to the sum of all input errors
+#
+check_ierror()
+{
+	typeset nic_name=$1
+	typeset nic_num=$2
+	typeset ierror_sum=0
+	typeset oerror_sum=0
+	typeset ierror_list
+	typeset oerror_list
+	case $nic_name in
+		bge)
+			ierror_list[0]="dot3StatsFCSErrors"
+			ierror_list[1]="dot3StatsAlignmentErrors" 
+			ierror_list[2]="dot3StatsFrameTooLongs"
+			ierror_list[3]="etherStatsUndersizePkts" 
+			ierror_list[4]="etherStatsJabbers" 
+		
+			oerror_list[0]="mac:noxmtbuf" 
+			;;
+		e1000g)
+			ierror_list[0]="macrcv_errors"
+			ierror_list[1]="align_errors" 
+			ierror_list[2]="Recv_Length_Errors"
+			ierror_list[3]="fcs_errors" 
+			ierror_list[4]="carrier_errors" 
+
+			oerror_list[0]="macxmt_errors"
+			;;
+		nge)
+			ierror_list[0]="ifHInFrameErrCount"
+			ierror_list[1]="ifHInAlignErrCount" 
+			ierror_list[2]="ifHInLenErrCount"
+			ierror_list[3]="ifHInFCSErrCount" 
+			ierror_list[4]="ifHInFovErrCount" 
+			ierror_list[5]="ifHInOversizeErrCount" 
+			ierror_list[6]="ifHInExtraOctErrCount" 
+			ierror_list[7]="ifHInLColErrCount" 
+			
+			oerror_list[0]="ifHOutFifoovCount"
+			oerror_list[1]="ifHOutLOCCount"
+			oerror_list[2]="ifHOutExDecCount"
+			oerror_list[3]="ifHOutRetryCount "
+			;;
+
+		*)
+			echo "only bge,e1000g,nge support ierror/oerror check !" 
+			return 0
+			;; 
+	esac
+	
+	for ierror_item in ${ierror_list[@]}; do
+		typeset i_value=$( kstat -p ${nic_name}:${nic_num} | \
+                	grep ${ierror_item} | awk '{print $2}' )
+		if [ -z ${i_value} ]; then
+			echo "Warning ${ierror_item} is null"
+			return 0
+		fi
+		(( ierror_sum+=$i_value ))
+	done 
+
+	for oerror_item in ${oerror_list[@]}; do
+		typeset o_value=$( kstat -p ${nic_name}:${nic_num} | \
+			grep ${oerror_item} | awk '{print $2}' )
+		if [ -z ${o_value} ]; then
+			echo "Warning ${oerror_item} is null"
+			return 0
+		fi
+		(( oerror_sum+=$o_value ))
+	done 
+
+	typeset ierror=$( kstat -p ${nic_name}:${nic_num} | grep mac | \
+	    grep ierror | awk '{print $2}' )
+	typeset oerror=$( kstat -p ${nic_name}:${nic_num} | grep mac | \
+	    grep oerror | awk '{print $2}' )
+
+	if (( "${ierror}" != "${ierror_sum}" || "${oerror}" != "${oerror_sum}" )); then
+		echo "${nic_name} ${nic_num} ierror/oerror check failed"
+		return 1
+	else
+		echo "${nic_name} ${nic_num} ierror/oerror check pass"
+		return 0
+	fi
+}
+
+#
+# Check the the subnet ip of given interface
+# $1 driver name
+# $2 instance number
+# Return subnet ip, if can't get ip, return string "0"
+#
+get_subnetip()
+{
+        subnet_ip=`ifconfig $1$2 | \
+            grep broadcast | awk '{print $6}' | sed 's/255/0/g'`
+        if [ -z "$subnet_ip" ]; then
+                echo 0
+        else
+                echo $subnet_ip
+        fi
+}
+
+#
+# Function check_tools_path
+# Check the path of ftp,nfscorrupt,MAXQ is vaild
+#
+check_tools_path() {
+	FTP_PATH=${STF_SUITE}/tools/ftp/${STF_EXECUTE_MODE}
+	NFS_PATH=${STF_SUITE}/tools/nfscorrupt/${STF_EXECUTE_MODE}
+	MAXQ_PATH=${STF_SUITE}/tools/maxq/${STF_EXECUTE_MODE}
+	if [ ! -f $FTP_PATH/ftp.auto ]; then
+		echo "Failed:$FTP_PATH/ftp.auto not found"
+		exit 1
+	fi
+
+	if [ ! -f $NFS_PATH/Corrupt.auto ]; then
+		echo "Failed:$NFS_PATH/Corrupt.auto not found"
+		exit 1
+	fi
+
+	if [ ! -f $MAXQ_PATH/MAXQ.auto ]; then
+		echo "Failed:$MAXQ_PATH/MAXQ.auto not found"
+		exit 1 
+	fi
+}
+
+#
+# Function name: extract_assertion_info
+#
+# Purpose:
+#       Print out in a standard format, to stdout (and thus to the journal
+#       file) the assertion information.  This information is pulled from the
+#       standard assertion comment.
+#
+# Arguments:
+#       $1 = the file where the header information is.  Typically this
+#         is the test case source file.
+#
+# Return:  0 (always succeeds).
+#
+function extract_assertion_info
+{
+        nawk -v comment_arg=$1 '
+
+        BEGIN {
+                in_assertion            = 0;
+                turn_off_printing       = 0;
+        }
+
+        #
+        # End of the .spec content.
+        #
+        /^# __stc_assertion_end/ {
+                in_assertion = 0;
+                next;
+        }
+
+        #
+        # Beginning of the .spec content.
+        #
+        /^# __stc_assertion_start/ {
+                in_assertion = 1;
+                next;
+        }
+
+        #
+        #
+        /^.+ID:/ && (in_assertion) {
+                a=substr($0, index($0, "ASSERTION ID:") + length("ASSERTION ID:"));
+                printf("ASSERTION ID: %s\n\n", a);
+                turn_off_printing = 1;
+                next;
+        }
+
+        #
+        # Actual assertion statement. STC calls this the description and
+        # requires one for every ASSERTION:.
+        #
+        /^.+DESCRIPTION:/ && (in_assertion) {
+                a=substr($0, index($0, "DESCRIPTION:") + length("DESCRIPTION:"));
+                printf("DESCRIPTION: %s\n", a);
+                turn_off_printing = 0;
+                next;
+        }
+
+        /^.+STRATEGY:/ && (in_assertion) {
+                a=substr($0, index($0, "STRATEGY:") + length("STRATEGY:"));
+                printf("STRATEGY: %s\n", a);
+                turn_off_printing = 0;
+                next;
+        }
+
+        /^.+TESTABILITY:/ && (in_assertion) {
+                a=substr($0, index($0, "TESTABILITY:") + length("TESTABILITY:"));
+                printf("TESTABILITY: %s\n", a);
+                turn_off_printing = 0;
+                next;
+        }
+
+        #
+        # List of interfaces targeted by the current assertion. STC requires
+        # one of these for every ASSERTION:
+        #
+        /^.+INTERFACES:/ && (in_assertion) {
+                in_assertion = 0;
+        }
+
+        /^.+AUTHOR:/ && (in_assertion) {
+                in_assertion = 0;
+        }
+
+        #
+        # Body of the assertion comments.
+        #
+        (in_assertion) && length && !(turn_off_printing) {
+                a=substr($0,index($0,"#")+1);
+                printf("%s\n", a);
+        }
+        (in_assertion) && (turn_off_printing)  {
+                next;
+        }
+
+        ' $1
+}
+
+
+#
+# save NIC interfaces for a driver
+# $1 driver name
+# ALL_INTERFACE  a global var that contains  the saved result
+#
+save_all_interface()
+{
+        typeset driver=$1
+        ALL_INTERFACE=$(ifconfig -a | grep $driver | awk -F: '{print $1}')
+        for interface in $ALL_INTERFACE; do
+                save_interface $interface
+        done
+}
+
+#
+# Save one interface information and unplumb it
+# $1 interface name, if not specified, use TST_INT and TST_NUM
+#
+save_interface()
+{
+        typeset interface=$1
+        if [ -z "$interface" ]; then
+                interface=${TST_INT}${TST_NUM}
+        fi
+
+        inet=`ifconfig ${interface} | \
+            grep netmask | awk -F' ' '{print $2}'`
+        netmask=0x`ifconfig ${interface} | \
+            grep netmask | awk -F' ' '{print $4}'`
+        dhcp=`ifconfig ${interface}  | \
+            grep DHCP | wc -l | awk '{print $1}'`
+
+        eval INET_${interface}=$inet
+        eval NETMASK_${interface}=$netmask
+        eval DHCP_${interface}=$dhcp
+
+        unplumb_interface $interface
+
+}
+
+#
+# unplumb one interface
+# $1 interface name, if not specified, use TST_INT and TST_NUM
+#
+unplumb_interface()
+{
+        typeset interface=$1
+        if [ -z "$interface" ]; then
+                interface=${TST_INT}${TST_NUM}
+        fi
+
+        inet=`ifconfig ${interface} | \
+            grep netmask | awk -F' ' '{print $2}'`
+        dhcp=`ifconfig ${interface}  | \
+            grep DHCP | wc -l | awk '{print $1}'`
+
+        if [ $dhcp -eq 0 ]; then
+                echo "unplumb $interface with ip $inet"
+                ifconfig $1 unplumb
+        else
+                echo "unplumb $1 with DHCP, ip $inet"
+                ifconfig $1 dhcp drop
+                ifconfig $1 unplumb
+        fi
+
+}
+
+#
+# restore NIC interface from ALL_INTERFACE variable
+#
+restore_all_interface()
+{
+        typeset result=0
+        for interface in $ALL_INTERFACE; do
+                restore_interface $interface || result=1
+        done
+        return $result
+}
+
+#
+# restore one NIC interface
+# $1 NIC interface name
+#
+restore_interface()
+{
+        interface=$1
+
+        # get backup information from global var
+        eval inet=\$INET_${interface}
+        eval netmask=\$NETMASK_${interface}
+        eval dhcp=\$DHCP_${interface}
+
+        if [ $dhcp -eq 0 ]; then
+                echo "plumb $interface with ip $inet and netmask $netmask"
+                ifconfig $interface plumb $inet netmask $netmask up
+        else
+                echo "plumb $1 with DHCP"
+                ifconfig $1 plumb
+                ifconfig $1 dhcp
+        fi
+}
+
+#
+# execute command via rsh, check the return code
+# $1 hostname
+# $2 command line
+#
+exec_rshcmd() {
+        host=$1
+        cmd=$2
+        typeset error=`rsh -n $1 "$cmd > /dev/null; echo \\\$?"`
+        if [[ $error != 0 ]]; then
+                echo "Exec Failed: rsh $1 \"$cmd > /dev/null; echo \$?\""
+                return 1
+        fi
+}
+
+#
+# execute local command, check the return code
+# $1 command line
+#
+exec_cmd() {
+        cmd=$1
+        eval $cmd
+        if [ $? -ne 0 ]; then
+                echo "Exec Failed : $cmd"
+                return 1
+        fi
+}
+
+#
+# use show-phys/show-dev get nic card information
+# $1 argument
+#
+show_device() {
+	arg=$1
+	dladm show-phys $arg > /dev/null 2>&1 
+	if [[ $? != 0 ]]; then
+		typeset cmd="dladm show-dev"
+	else 
+		typeset cmd="dladm show-phys"
+	fi
+	exec_cmd "$cmd $arg"
+}
+
+#
+# Get the current value of chip reset count 
+# $1 driver name
+# $2 instance number
+#
+get_reset_count()
+{
+	case "$1" in
+	"e1000g") kstat -p $1:$2 | grep "Reset Count" | cut -f 2;;
+	"bge") kstat -p $1:$2 | grep "chip_resets" | cut -f 2;;
+	"nge") kstat -p $1:$2 | grep "tx_stall" | cut -f 2;;
+	"igb") kstat -p $1:$2 | grep "reset_count" | cut -f 2;;
+	"ixgbe") kstat -p $1:$2 | grep "reset_count" | cut -f 2;;
+	"ixgb") kstat -p $1:$2 | grep "chip_reset" | cut -f 2;;
+	# need to add more drivers
+	*)	return 1;;
+	esac
+
+	return 0	
+}
+
+#
+# Record the number of reset count before checking
+# $1 driver name
+# $2 instance number
+#
+record_reset_count()
+{
+	get_reset_count $1 $2 > $LOGDIR/reset_count_ori
+	if [ $? -ne 0 ]; then
+		echo "Cannot get chip reset count for $1$2"
+		return 2 # unsupported
+	else
+		echo "Record rst cnt $1$2 $(cat $LOGDIR/reset_count_ori)"
+	fi
+	return 0
+}
+
+#
+# Check the number of reset count before checking
+# $1 driver name
+# $2 instance number
+# reture vaule 0:pass 1:fail 2:unsupported
+#
+check_reset_count()
+{
+	typeset new_rst_cnt old_rst_cnt
+	new_rst_cnt=$(get_reset_count $1 $2)
+        if [ $? -ne 0 ]; then
+                echo "Cannot get chip reset count for $1$2"
+                return 2
+        fi
+	echo "Chip Reset Count $1$2: $new_rst_cnt"
+
+        if [ ! -f $LOGDIR/reset_count_ori ]; then
+                echo "Please call record_reset_count first. Unchecked!"
+                return 2
+        else
+		old_rst_cnt=$(cat $LOGDIR/reset_count_ori)
+		if [ $new_rst_cnt -gt $old_rst_cnt ]; then
+			echo "Check reset count FAIL! old $old_rst_cnt"
+			rm -f $LOGDIR/reset_count_ori
+			return 1
+		fi
+	fi 
+	echo "Check reset count PASS!"
+	rm -f $LOGDIR/reset_count_ori
+	return 0
+}
+
+#
+#
+# Measure command time usage
+# $1 command
+# $2 boundary
+#
+time_statistics() {
+	typeset cmd=$1
+	typeset boundary=$2
+	/usr/bin/time $cmd 2>/tmp/time.log
+	if [ ! -f /tmp/time.log ]; then 
+		echo "can not got time"
+		return 3
+	fi
+	time_use=$(gawk '/real/{print $2}' /tmp/time.log)
+	ret=$(gawk -v a=$time_use -v b=$boundary 'BEGIN{print(a>b)?"1":"0"}')
+	cat /tmp/time.log
+	rm /tmp/time.log
+	return $ret
+}
+
+# Function create_local_vlan
+# Create vlan on local host nic card interface
+# $1 vlan start id
+# $2 vlan end id
+# $3 local nic card driver name
+# $4 local nic card interface index
+#
+create_local_vlan()
+{
+	typeset vlan_start=$1
+	typeset vlan_end=$2
+	typeset g_drv=$3
+	typeset g_base_ppa=$4
+	typeset fail_flag=0
+	dladm show-vlan > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		while true; do
+			[ $vlan_start -gt $vlan_end ] && break
+			dladm create-vlan -t -l $g_drv$g_base_ppa -v $vlan_start \
+			    > /dev/null 2>&1
+			if [ $? -ne 0 ]; then
+				echo "ERROR:create vlan id $vlan_start failed"
+				fail_flag=1
+			fi
+			((vlan_start += 1))
+		done
+	fi
+	return $fail_flag
+}
+
+#
+# Function create_remote_vlan
+# Create vlan interface on remote host physical nic interface
+# $1 vlan start id
+# $2 vlan end id
+# $3 remote driver name
+# $4 remote driver interface index
+# $5 remote host ip
+#
+create_remote_vlan()
+{
+	typeset vlan_start=$1
+	typeset vlan_end=$2
+	typeset g_drv_rm=$3
+	typeset g_base_ppa_rm=$4
+	typeset rm_ip=$5
+	typeset fail_flag=0
+	error=`rsh -n $rm_ip "dladm show-vlan > /dev/null 2>&1; echo \\\$?"`
+	if [ $error -eq 0 ]; then
+		while true; do
+			[ $vlan_start -gt $vlan_end ] && break
+			exec_rshcmd $rm_ip "dladm create-vlan -t -l \
+			    $g_drv_rm$g_base_ppa_rm -v $vlan_start"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1	
+			fi
+			((vlan_start += 1))
+		done
+	fi
+	return $fail_flag
+}
+
+#
+# Function delete_local_vlan
+# delete vlan interface on local machine
+# $1 vlan start id
+# $2 vlan end id
+# $3 local host driver name
+# $4 local host interface index
+#
+delete_local_vlan()
+{
+	typeset vlan_start=$1
+	typeset vlan_end=$2
+	typeset g_drv=$3
+	typeset g_base_ppa=$4
+	typeset fail_flag=0
+	dladm show-vlan > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		while true; do
+			[ $vlan_start -gt $vlan_end ] && break
+			inst=`expr $vlan_start \* 1000 + $g_base_ppa`
+			dladm delete-vlan $g_drv$inst > /dev/null 2>&1
+			if [ $? -ne 0 ]; then 
+				echo "ERROR:delete vlan id $vlan_start failed"
+				fail_flag=1	
+			fi
+			((vlan_start += 1))
+		done
+	fi
+	return $fail_flag
+}
+
+#
+# Function delete_remote_vlan
+# Create vlan interface on remote machine physical nic interface
+# $1 vlan start id
+# $2 vlan end id
+# $3 remote driver name
+# $4 remote driver interface index
+# $5 remote host ip
+#
+delete_remote_vlan()
+{
+	typeset vlan_start=$1
+	typeset vlan_end=$2
+	typeset g_drv_rm=$3
+	typeset g_base_ppa_rm=$4
+	typeset rm_ip=$5
+	typeset fail_flag=0
+	error=`rsh -n $rm_ip "dladm show-vlan > /dev/null 2>&1; echo \\\$?"`
+	if [ $error -eq 0 ]; then
+		while true; do
+			[ $vlan_start -gt $vlan_end ] && break
+			inst=`expr $vlan_start \* 1000 + $g_base_ppa_rm`
+			exec_rshcmd $rm_ip "dladm delete-vlan $g_drv_rm$inst"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+			((vlan_start += 1))
+		done
+	fi
+	return $fail_flag
+}
+
+#
+# Function plumb_unplumb_local_vlan
+# plumb and unplumb host machine vlan interface
+# Argument:
+# $1 subcommand(plumb,unplumb)
+# $2 vlan start id
+# $3 vlan end id
+# $4 local host driver name
+# $5 local host driver interface index
+#
+plumb_unplumb_local_vlan() {
+	typeset command=$1
+	typeset vlan_start=$2
+	typeset vlan_end=$3 
+	typeset g_drv=$4
+	typeset g_base_ppa=$5
+	typeset fail_flag=0
+	while [ $vlan_start -le $vlan_end ]; do
+		inst=`expr $vlan_start \* 1000 + $g_base_ppa`
+		if [ $command == "plumb" ]; then
+			exec_cmd "ifconfig ${g_drv}${inst} plumb > /dev/null 2>&1"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+		fi
+
+		if [ $command == "unplumb" ]; then
+			exec_cmd "ifconfig ${g_drv}${inst} unplumb > /dev/null 2>&1"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+		fi
+	    	vlan_start=`expr $vlan_start + 1`
+	done
+	return $fail_flag
+}
+
+#
+# Function plumb_unplumb_remote_vlan
+# plumb and unplumb remote host machine vlan interface
+# Argument:
+# $1 subcommand(plumb,unplumb)
+# $2 vlan start id
+# $3 vlan end id
+# $4 remote host driver name
+# $5 remote host driver interface index
+# $6 remote host ip 
+#
+plumb_unplumb_remote_vlan() {
+	typeset command=$1
+	typeset vlan_start=$2
+	typeset vlan_end=$3
+	typeset g_drv_rm=$4
+	typeset g_base_ppa_rm=$5
+	typeset rm_ip=$6
+	typeset fail_flag=0
+	while [ $vlan_start -le $vlan_end ]; do
+		inst=`expr $vlan_start \* 1000 + $g_base_ppa_rm`
+		if [ $command == "plumb" ]; then
+			exec_rshcmd $rm_ip "ifconfig ${g_drv_rm}${inst} plumb"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		fi
+
+		if [ $command == "unplumb" ]; then
+			exec_rshcmd $rm_ip "ifconfig ${g_drv_rm}${inst} unplumb"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+		fi
+	    	vlan_start=`expr $vlan_start + 1`
+	done
+	return $fail_flag
+}
+
+#
+# Function set_local_ip_addr
+# set local machine vlan ip address
+# Argument:
+# $1 subnet ip prefix
+# $2 vlan start id
+# $3 vlan end id
+# $4 local host driver name
+# $5 local host driver interface index
+#
+set_vlan_local_ip_addr() {
+	typeset base_ip=$1
+	typeset vlan_start=$2
+	typeset vlan_end=$3
+	typeset g_drv=$4
+	typeset g_base_ppa=$5
+	typeset fail_flag=0
+	while [ $vlan_start -le $vlan_end ]; do
+		inst=`expr $vlan_start \* 1000 + $g_base_ppa`
+		exec_cmd "ifconfig ${g_drv}${inst} ${base_ip}.${vlan_start}.1/24 up"
+		if [ $? -ne 0 ]; then 
+			fail_flag=1;	
+		fi
+
+		local_host_lists="${local_host_lists}${base_ip}.${vlan_start}.1,"
+	    	vlan_start=`expr $vlan_start + 1`
+	done
+	echo $local_host_lists | sed 's/,$//g'
+	return $fail_flag
+}
+
+#
+# Function set_remote_ip_addr
+# set remote machine vlan ip address
+# Argument:
+# $1 subnet ip prefix
+# $2 vlan start id
+# $3 vlan end id
+# $4 local host driver name
+# $5 local host driver interface index
+# $6 remote host ip
+#
+set_vlan_remote_ip_addr() {
+	typeset base_ip=$1
+	typeset vlan_start=$2
+	typeset vlan_end=$3
+	typeset g_drv_rm=$4
+	typeset g_base_ppa_rm=$5
+	typeset rm_ip=$6
+	typeset fail_flag=0
+	while [ $vlan_start -le $vlan_end ]; do
+		inst=`expr $vlan_start \* 1000 + $g_base_ppa_rm`
+		exec_rshcmd $rm_ip "ifconfig ${g_drv_rm}${inst} ${base_ip}.${vlan_start}.2/24 up"
+		if [ $? -ne 0 ]; then 
+			fail_flag=1;	
+		fi
+
+		remote_host_lists="${remote_host_lists}${base_ip}.${vlan_start}.2,"
+	    	vlan_start=`expr $vlan_start + 1`
+	done
+	echo $remote_host_lists | sed 's/,$//g'
+	return $fail_flag
+}
+
+#
+# Function create_local_vnic
+# Create vnic interface base on host machine physical nic interface
+# Argument:
+# $1 - physical nic interface name
+# $2 - mac mode(fixed,random)
+# $3 - nic count
+# $4 - priority low,high
+# $5 - offset
+# $6 - vnic name prefix
+#
+create_local_vnic() {
+	typeset i=0 
+	typeset MAC_PREFIX=0:a:e4:26:a
+	typeset flag=$2
+	typeset count=$3
+	typeset pri=$4
+	typeset offset=$5
+	typeset g_base_name=$6
+	typeset fail_flag=0
+	while [ $i -lt $count ]; do
+		hex_i=`printf "%x" $i`
+		vnic_id=`expr $i + $offset`
+		if [ $flag == "fixed" ]; then
+			exec_cmd "dladm create-vnic -t -l $1 -m ${MAC_PREFIX}:${hex_i}\
+			    -p priority=${pri} ${g_base_name}${vnic_id}"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+	    	elif [ $flag == "random" ]; then
+			exec_cmd "dladm create-vnic -t -l $1 -m auto -p priority=${pri}\
+			    ${g_base_name}${vnic_id}" 
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		else
+			echo "please use fixed,random mac address"
+		fi
+		i=`expr $i + 1`
+	done
+	return $fail_flag
+}
+
+#
+# Function create_remote_vnic
+# Create vnic interface base on remote machine physical nic interface
+# Argument:
+# $1 - physical nic interface name
+# $2 - mac mode(fixed,random)
+# $3 - nic count
+# $4 - priority(low,high)
+# $5 - vnic id offset
+# $6 - vnic name prefix
+# $7 - remote ip
+#
+create_remote_vnic() {
+	typeset i=0 
+	typeset MAC_PREFIX=0:a:e4:26:a
+	typeset flag=$2
+	typeset count=$3
+	typeset pri=$4
+	typeset offset=$5
+	typeset g_base_name=$6
+	typeset rm_ip=$7
+	typeset fail_flag=0
+	while [ $i -lt $count ]; do
+		hex_i=`printf "%x" $i`
+		vnic_id=`expr $i + $offset`
+		if [ $flag == "fixed" ]; then
+			exec_rshcmd $rm_ip "dladm create-vnic -t -l $1 -m ${MAC_PREFIX}:${hex_i}\
+			    -p priority=${pri} ${g_base_name}${vnic_id}"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+	    	elif [ $flag == "random" ]; then
+ 			exec_rshcmd $rm_ip "dladm create-vnic -t -l $1 -m auto -p priority=${pri}\
+			    ${g_base_name}${vnic_id}" 
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		else
+			echo "please use fixed,random mac address"
+		fi
+		i=`expr $i + 1`
+	done
+	return $fail_flag
+}
+
+#
+# Function plumb_unplumb_local_vnic
+# plumb and unplumb host machine vnic interface
+# Argument:
+# $1 - subcommand(plumb,unplumb)
+# $2 - vnic counts
+# $3 - vnic name prefix
+#
+plumb_unplumb_local_vnic() {
+	typeset command=$1
+	typeset count=$2
+	typeset g_base_name=$3
+	typeset j=0
+	typeset fail_flag=0
+	while [ $j -lt $count ]; do
+		if [ $command == "plumb" ]; then
+			exec_cmd "ifconfig ${g_base_name}${j} plumb"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		fi
+
+		if [ $command == "unplumb" ]; then
+			exec_cmd "ifconfig ${g_base_name}${j} unplumb"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		fi
+	    	j=`expr $j + 1`
+	done
+	return $fail_flag
+}
+
+#
+# Function plumb_unplumb_remote_vnic
+# plumb and unplumb remote machine vnic interface
+# Argument:
+# $1 - subcommand(plumb,unplumb)
+# $2 - vnic counts
+# $3 - vnic name prefix
+# $4 - remote ip
+#
+plumb_unplumb_remote_vnic() {
+	typeset command=$1
+	typeset count=$2
+	typeset g_base_name=$3
+	typeset rm_ip=$4
+	typeset j=0
+	typeset fail_flag=0
+	while [ $j -lt $count ]; do
+		if [ $command == "plumb" ]; then
+			exec_rshcmd $rm_ip "ifconfig ${g_base_name}${j} plumb"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		fi
+		if [ $command == "unplumb" ]; then
+			exec_rshcmd $rm_ip "ifconfig ${g_base_name}${j} unplumb"
+			if [ $? -ne 0 ]; then 
+				fail_flag=1;	
+			fi
+
+		fi
+	    	j=`expr $j + 1`
+	done
+	return $fail_flag
+}
+
+#
+# Function delete_local_vnic
+# Delete host machine vnic interfaces
+# Argument:
+# $1 - vnic counts
+# $2 - vnic name prefix
+#
+delete_local_vnic() {
+	typeset j=0
+	typeset count=$1
+	typeset g_base_name=$2
+	typeset fail_flag=0
+	while [ $j -lt $count ] ; 
+        do
+		exec_cmd "dladm delete-vnic ${g_base_name}${j}"
+		if [ $? -ne 0 ]; then 
+			fail_flag=1;	
+		fi
+	    	j=`expr $j + 1`
+        done
+	return $fail_flag
+}
+
+#
+# Function delete_remote_vnic
+# Delete remote machine vnic interfaces
+# Argument:
+# $1 - vnic counts
+# $2 - vnic name prefix
+# $3 - remote ip
+#
+delete_remote_vnic() {
+	typeset j=0
+	typeset count=$1
+	typeset g_base_name=$2
+	typeset rm_ip=$3
+	typeset fail_flag=0
+	while [ $j -lt $count ] ; 
+        do
+		exec_rshcmd $rm_ip "dladm delete-vnic ${g_base_name}${j}"
+		if [ $? -ne 0 ]; then 
+			fail_flag=1;	
+		fi
+	    	j=`expr $j + 1`
+        done
+	return $fail_flag
+}
+
+#
+# Function set_vnic_local_ip_addr
+# Set host machine vnic interface ip address
+# Argument:
+# $1 - ip address perfix,ex $1.x
+# $2 - vnic interface count
+# $3 - vnic name prefix
+#
+set_vnic_local_ip_addr() {
+	typeset base_ip=$1
+	typeset count=$2
+	typeset g_base_name=$3
+	typeset j=0
+	typeset fail_flag=0
+	while [ $j -lt $count ]; do
+		exec_cmd "ifconfig ${g_base_name}${j} ${base_ip}.${j}.1/24 up"
+		if [ $? -ne 0 ]; then 
+			fail_flag=1;	
+		fi
+		local_host_lists="${local_host_lists}${base_ip}.${j}.1,"
+	    	j=`expr $j + 1`
+	done
+	echo $local_host_lists | sed 's/,$//g'
+	return $fail_flag
+}
+
+
+#
+# Function set_vnic_remote_ip_addr
+# Set remote machine vnic interface ip address
+# Argument:
+# $1 - ip address perfix,ex $1.x
+# $2 - vnic interface count
+# $3 - vnic name prefix
+# $4 - remote ip
+#
+set_vnic_remote_ip_addr() {
+	typeset base_ip=$1
+	typeset count=$2
+	typeset g_base_name=$3
+	typeset rm_ip=$4
+	typeset j=0
+	typeset fail_flag=0
+	while [ $j -lt $count ]; do
+		exec_rshcmd $rm_ip "ifconfig ${g_base_name}${j} ${base_ip}.${j}.2/24 up"
+		if [ $? -ne 0 ]; then 
+			fail_flag=1;	
+		fi
+
+		remote_host_lists="${remote_host_lists}${base_ip}.${j}.2,"
+	    	j=`expr $j + 1`
+	done
+	echo $remote_host_lists | sed 's/,$//g'
+	return $fail_flag
+}
+
+. ${STF_SUITE}/parameters.env
+. ${STF_SUITE}/include/getParameter.ksh

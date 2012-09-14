@@ -1,0 +1,486 @@
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+
+#
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+# ident	"@(#)nicdrv.assert	1.4	09/03/04 SMI"
+#
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test00
+
+DESCRIPTION:
+        Test data transmit/receive functionality
+
+STRATEGY:
+        - Plumb IPv4/IPv6 test interfaces on both client/server.
+        - Repeatedly FTP (get/put) files of different sizes (1/10M/100M/1000M).
+        - For each file size, the ftp traffic should be sustained for at least 900 sec.
+        - All FTP sessions should pass without any errors
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test01
+
+DESCRIPTION:
+        Test data transmit/receive functionality under promiscuous mode
+
+STRATEGY:
+        - Start multi-session TCP traffic with 65000/1460/1 byte payloads
+        - During TCP data transmission, repeatedly enable/disable promiscuous mode
+        - Start multi-session UDP traffic with 65000/1460/1 byte payloads
+        - During UDP data transmission, repeatedly enable/disable promiscuous mode
+        - All TCP/UDP sessions should pass without any errors
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test02
+
+DESCRIPTION:
+        Test packet transmit/receive based on packet level
+
+STRATEGY:
+        - Ping peer machine with various ICMP payloads(0-65508 bytes)
+        - Ping should pass with zero packet loss
+
+TESTABILITY: implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test03
+
+DESCRIPTION:
+        Test and verify that no data corruptions are found
+        during data transmit/receive
+
+STRATEGY:
+        - Run nfscorrupt TCP traffic on test interface for 1 hour
+        - Run nfscorrupt UDP traffic on test interface for 1 hour
+        - Test should pass without data corruptions
+
+TESTABILITY: implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test04
+
+DESCRIPTION:
+        Test MULTICAST functionality
+
+STRATEGY:
+        - Add multicast route and join multicast group
+        - Receive ip_multicast traffic from the client side
+          with 1 multicast group.
+        - Send ip_multicast traffic to the client side
+          with 1 multicast group.
+        - Join multiple multicast groups, and receive multicast
+          traffic of multiple groups from the client.
+
+TESTABILITY: implicit
+
+AUTHOR: Robin.Luo@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test05
+
+DESCRIPTION:
+        Test NIC driver ndd interfaces with read/write operations
+
+STRATEGY:
+        - Read all "read only" ndd parameters supported by the NIC driver.
+        - Try to write all "read and write" ndd parameters.
+        - All operations should pass without any errors.
+        - Driver link/speed status should be recovered to original status.
+
+TESTABILITY: implicit
+
+AUTHOR: Robin.luo@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test06
+
+DESCRIPTION:
+        Test data transmit/receive functionality
+        on all of duplex/speed modes supported by driver
+
+STRATEGY:
+        - Set all duplex/speed modes
+          (dup/1000 half/1000 dup/100 half/100 dup/10 half/10)
+        - On each mode, run multi-session TCP traffic with
+          different payloads (65000/1460/1 bytes).
+        - On each mode, run multi-sessions UDP traffic with
+          different payloads (65000/1460/1 bytes).
+        - All operations should pass without any errors.
+        - Driver link/speed status should be recovered to original status.
+
+TESTABILITY: implicit
+
+AUTHOR: Robin.Luo@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test07
+
+DESCRIPTION:
+        Test statistics and observability of the driver
+
+STRATEGY:
+        - Start single session TCP/UDP testing on test interfaces
+        - Invoke dladm statistic command on the test interface
+        - Check overflow for each counter
+        - Invoke kstat commands for the driver module
+        - Check overflow for each counter
+        - Invoke netstat -s for NIC interface
+        - Check error counters 
+
+TESTABILITY: implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test08
+
+DESCRIPTION:
+        Test vlan functionality: initialization and data transmit/receive
+
+STRATEGY:
+        - Plumb/Unplumb maximal number(4094) of vlan interfaces
+        - Run ftp,nfscorrupt tcp/udp, netperf, ping on 10 vlan interfaces
+        - All of tests should pass without any errors
+
+TESTABILITY: implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test09
+
+DESCRIPTION:
+        Test NIC aggregation: initialization and data transmitg/receive
+
+STRATEGY:
+        - Create an aggregation on test devices and plumb the interface
+        - Run nfscorrupt TCP UDP traffic on aggregation
+        - During the sending of network traffic, plumb/unplumb aggregation interfaces
+        - All of tests should pass without any errors
+
+TESTABILITY: implicit
+
+AUTHOR: Oliver.Yang@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test10
+
+DESCRIPTION:
+	Test driver load unload functionality
+	for _init/_fini and transmit/receive areas
+
+STRATEGY:
+	- Unplumb the NIC interface and remove the driver module.
+	- Add the driver module and plumb the corresponding interface.
+	- Change the MAC address of the interface.
+	- Start multi-session TCP traffic on test interfaces.
+	- Repeatedly plumb/unplumb test interfaces under the network traffic.
+	- After the testing, the test interface should still work (no hang).
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: Robin.Luo@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2007-12-05)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test11
+
+DESCRIPTION:
+	Test NIC driver dynamic reconfiguration support
+
+STRATEGY:
+	- Find the attachment ponit id for the NIC card under testing
+	- unplumb all NIC interface for the attachment ponit
+	- run cfgadm disconnect/connect/configure/unconfigure for the attachement ponit
+	- run sanity test for the NIC interface
+	- Start multi-session TCP traffic on test interfaces.
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: Mengwei.Jiao@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2007-12-05)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test12
+
+DESCRIPTION:
+         Create,plumb,unplumb,delete vnic interface,and will
+         use vnic interface send/revice data.
+
+STRATEGY:
+        - plumb,unplumb maximal vnic interfaces using fixed and random mac address
+        - create 10 vnic interfaces with high priority,assign each vnic to all cpus,
+                set use 90% bandwith,run nfs,MAXQ,ftp 
+        - create 10 vnic interfaces with low priority,assign each vnic to one cpus,
+                set use 10% bandwith,run nfs,MAXQ,ftp 
+        - create 5 vnic interfaces with low priority,assign each vnic to one cpus,
+                set use 10% bandwith, create 5 vnic interfaces with high priority,
+                assign each vnic to all cpu,run nfs,MAXQ,ftp
+
+
+TESTABILITY: implicit
+
+AUTHOR: yuan.fan@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2008-12-01)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/functional/test13
+
+DESCRIPTION:
+        NIC driver parameter configuration testing via dladm command(Brussles project)
+
+STRATEGY:
+        - List all parameters for the NIC device via dladm
+        - For each parameter, try to set the parameter to all possible value. 
+                check if the parameter is read-only or not-supported.  
+        - Reset each parameter and verify the value is reset to its default value
+        - Use dladm to set the link speed to 1000M, 100M, 10M and run MAXQ
+        - Use dladm to set the mtu to 1500, 9000
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: mengwei.jiao@sun.com
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2008-12-01)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/stress/netstress
+
+DESCRIPTION:
+        Test driver stability by running a heavy network traffic (TCP/UDP)
+
+STRATEGY:
+        - Generate multi-session TCP/UDP network traffic.
+        - During data transmission, enable/disable promiscuous mode.
+        - After 12-15 hours of testing, the test interface should still work
+          or be recovered correctly.
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: Robin.Luo@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------
+
+__stc_assertion_start
+
+ID: tests/stress/load_unload
+
+DESCRIPTION:
+        Test driver functionality and stability
+        for _init/_fini and transmit/receive areas
+
+STRATEGY:
+        - Unplumb the NIC interface and remove the driver module.
+        - Add the driver module and plumb the corresponding interface.
+        - Change the MAC address of the interface.
+        - Start multi-session TCP traffic on test interfaces.
+        - Repeatedly plumb/unplumb test interfaces under the network traffic.
+        - Above steps should be repeated and sustained at least 6 hours.
+        - After the testing, the test interface should still work (no hang).
+
+TESTABILITY: statistical and implicit
+
+AUTHOR: Robin.Luo@Sun.COM
+
+REVIEWERS:
+
+TEST AUTOMATION LEVEL: automated
+
+CODING_STATUS:  COMPLETED (2006-05-10)
+
+__stc_assertion_end
+
+--------------------------------------------------

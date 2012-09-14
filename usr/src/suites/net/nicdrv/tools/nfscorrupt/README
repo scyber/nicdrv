@@ -1,0 +1,55 @@
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+
+#
+# Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+# ident	"@(#)README	1.2	08/04/22 SMI"
+#
+
+Corrupt.auto
+----------------------------------------------------------------------
+
+Description of test:
+        Corrupt.auto is a test to check for corruption across nfs mounts
+    and therefore the network connection.  To perform this Corrupt.auto
+    makes export directories on each client interface and server interface.
+    These exports are mounted on the matching server/client interface.
+    The direction of the mounts is controlled by the TRAFFIC_TYPE flag in 
+    the config file. The mount protocol is controlled by the PROTO flag
+    in the config file.  The SESSIONS flag will set how many mounts are
+    created on each interface.  Once the exports and mounts are setup 
+    a instance of the testcorrupt binary is started on each mount.  The
+    testcorrupt binary writes files across the nfs mount and calculates
+    a checksum for the file data.  Once the file is wrote it is read back
+    and the checksum is recalculated.  If the checksum is different then
+    corruption has happened and reported to the log file.  The testcorrupt
+    binary uses patterns from 0x00 to 0xff and increments the pattern
+    by 0x01 for each file wrote.  The file size also starts out at a random
+    number between 1 and 1000 and increases at a increasing rate to 120Mb.
+    Once the upper limit is reached, the file size is cut in half and allowed
+    to climb again.  The maximum load is when the file sizes are greater than
+    60mb but the lower numbers are to verify corruption at sizes smaller 
+    than the MTU and page size.  This load ramp is why it is advised to 
+    run this script at least a hour.  Upon completion of the test results
+    are mailed out and a log is put into /var/tmp/Corrupt.
+

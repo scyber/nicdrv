@@ -1,0 +1,120 @@
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+
+# 
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+# 
+# ident	"@(#)STC.INFO	1.11	09/06/24 SMI"
+#
+
+#
+#	STC.INFO - STC Test Suite and Tools Information File.  
+#
+
+#
+#	STC_NAME - Required
+#
+#	Test Suite or Tool Name
+#	
+STC_NAME="driver-nicdrv"
+
+#
+#	STC_SYNOPSIS - Required
+#
+#	A one line description of the test suite or tool.  This will
+#	be published on the STF website so make it meaningful.
+#
+STC_SYNOPSIS="NIC Driver Test Suite"
+
+#
+#	STC_SUPPORT_LEVEL - Required
+#
+#	STC_SUPPORT_LEVEL reflects one of three support levels 
+#	defined for STC 2.0 - "full", "partial", and "minimum"
+#	See the information on support levels on the "STC 2.0 
+#	Information" page.
+#
+#	If support is "partial" then exemptions from "full" support
+#	should be documented here as a comment.
+#
+STC_SUPPORT_LEVEL="full"
+
+#
+#	STC_OS_VERSION - Required
+#
+#	The version of the OS that this test suite or tool applies to.  This
+# 	should be the `uname -r` value.
+# 
+STC_OS_VERSION="5.11"
+
+#
+#	STC_VERSION - Required
+#	
+# 	The test suite or tool version.  The version number supports a
+# 	major and minor value:
+#	
+#       major = test suite or tool major version.  This should be incremented
+#               if new versions of the test suite or tool are released.
+#               Normally this indicates substantive changes and/or
+#               additions in test suite or tool functionality.
+#       minor = test suite or tool minor version. This should be incremented
+#               if minor changes or additions are made (e.g. bug fixes)
+#               The minor version should change every time the suite or tool
+#               changes.  When the major number changes the minor number
+#               should be reset to 0.  The initial version should be 1.0.
+#
+STC_VERSION=2.0
+
+#
+#	STC_BUGPRODUCT - Required (for full or partial support)
+#	STC_BUGCAT - Required (for full or partial support)
+#	STC_BUGSUBCAT - Required (for full or partial support)
+#
+#	The Bugster Product/Category/Subcategory information for this suite
+#	or tool. 
+#
+STC_BUGPRODUCT="stc"
+STC_BUGCAT="driver"
+STC_BUGSUBCAT="nic-nicdrv"
+
+#
+#	STC_CONTACT - Required (for full or partial support)
+#
+#	The email address of the contact person or alias for this suite or tool.
+#	Normally this should be the Bugster initial evaluator.  If you
+#	use multiple contacts then separate them with a comma.
+#
+STC_CONTACT="driver-discuss@opensolaris.org"
+
+#
+#	STC_URL - Optional
+#
+#	The URL for information about this suite or tool.
+#
+STC_URL="http://www.opensolaris.org/os/community/device_drivers/projects/nicdrvtest/"
+
+#	STC_OPENSOURCE_COMMUNITY - Required for open source
+#
+#	The URL of the open source community that this test suite or tool is
+#	associated with.
+#
+STC_OPENSOURCE_COMMUNITY="http://opensolaris.org/os/community/device_drivers/"
