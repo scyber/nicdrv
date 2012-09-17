@@ -27,7 +27,7 @@
 # ident	"@(#)genreport.ksh	1.2	08/04/22 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 if [ $DTRACE_SWITCH = "yes" ]; then

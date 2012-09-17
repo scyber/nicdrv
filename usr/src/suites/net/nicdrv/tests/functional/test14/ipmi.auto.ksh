@@ -27,7 +27,7 @@
 # ident	"@(#)ipmi.auto.ksh	1.1	09/06/24 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 integer FAIL_FLAG=0

@@ -34,7 +34,7 @@
 # 
 ###############################################################################
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 # Define local variables

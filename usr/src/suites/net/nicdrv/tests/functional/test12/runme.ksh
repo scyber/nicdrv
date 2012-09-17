@@ -64,7 +64,7 @@
 # $7 - remote root pass
 # $8 - run time for each apps running on vlan
 # $9 - vnic name perfix
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 # Define local variables

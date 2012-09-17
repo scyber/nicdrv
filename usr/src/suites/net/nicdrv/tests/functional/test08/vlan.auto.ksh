@@ -27,7 +27,7 @@
 # ident	"@(#)vlan.auto.ksh	1.7	09/06/24 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 #

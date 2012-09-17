@@ -6,7 +6,7 @@
 # ident	"@(#)dr.auto.ksh	1.2	09/03/04 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 
 g_LocalHost=$1
 g_RmHost=$2

@@ -27,7 +27,7 @@
 # ident	"@(#)configure.ksh	1.8	09/06/24 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 
@@ -130,7 +130,7 @@ check_netperf() {
 		NETPERF_HOME=${STF_TOOLS}/../SUNWstc-netperf2/bin/
 		echo "NETPERF_HOME=$NETPERF_HOME"
 	fi
-	if [ ! -f $NETPERF_HOME/$bin_dir/netperf ]; then
+	if [ ! -f $NETPERF_HOME/bin/netperf ]; then
 		echo "Couldn't not find netperf tools, \
 			please verify it is installed in proper location."
 		exit ${STF_FAIL}

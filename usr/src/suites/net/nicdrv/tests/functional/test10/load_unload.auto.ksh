@@ -27,7 +27,7 @@
 # ident	"@(#)load_unload.auto.ksh	1.6	09/06/24 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 integer debug=0

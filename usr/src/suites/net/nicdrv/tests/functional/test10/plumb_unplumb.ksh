@@ -31,7 +31,7 @@
 # $1:IF name, $2:IF num, $3:IP, $4: mask, $5: rmt_IP
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 cleanup()

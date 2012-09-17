@@ -46,7 +46,7 @@ check_netperf () {
 	bin_dir=`isainfo -n`
 	NETPERF_HOME=${NETPERF_HOME:-"${STF_TOOLS}/../SUNWstc-netperf2/bin/"}
 	echo "NETPERF_HOME=$NETPERF_HOME"
-	if [ ! -f $NETPERF_HOME/$bin_dir/netperf ]; then
+	if [ ! -f $NETPERF_HOME/bin/netperf ]; then
 		echo "Couldn't not find netperf tools, \
 		    please verify it is installed in proper location."
 		exit
@@ -440,13 +440,13 @@ setup()
     fi
 
     bin_dir=`isainfo -n`
-    if [ ! -f ${NETPERF_HOME}/${bin_dir}/${NET_SERVER} ]; then
-      echo "setup() FAILED : ${NETPERF_HOME}/${bin_dir}/${NET_SERVER} not found"
+    if [ ! -f ${NETPERF_HOME}/bin/${NET_SERVER} ]; then
+      echo "setup() FAILED : ${NETPERF_HOME}/bin/${NET_SERVER} not found"
       echo "  please contact testsuite owner with the platform available"
       if [ ${sut_os} = "SunOS" ]; then
-        mailx -s "$TESTNAME: ${NETPERF_HOME}/${bin_dir}/${NET_SERVER} not found" $MAILTO </dev/null
+        mailx -s "$TESTNAME: ${NETPERF_HOME}/bin/${NET_SERVER} not found" $MAILTO </dev/null
       elif [ ${sut_os} = "Linux" ]; then
-        mail -s "${TESTNAME}: ${NETPERF_HOME}/${bin_dir}/${NET_SERVER} not found" ${MAILTO} </dev/null
+        mail -s "${TESTNAME}: ${NETPERF_HOME}/bin/${NET_SERVER} not found" ${MAILTO} </dev/null
       fi
       return 1
     fi

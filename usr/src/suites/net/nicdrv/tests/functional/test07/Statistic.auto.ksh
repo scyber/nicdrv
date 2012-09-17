@@ -27,7 +27,7 @@
 # ident	"@(#)Statistic.auto.ksh	1.5	09/03/04 SMI"
 #
 
-. ${STF_TOOLS}/include/stf.kshlib
+. ${STF_TOOLS}/include/stf_common.kshlib
 . ${STF_SUITE}/include/common.kshlib
 
 usage()
