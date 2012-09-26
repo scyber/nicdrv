@@ -451,8 +451,14 @@ setup()
       return 1
     fi
     
-    rmt_bin_dir=`rsh ${host} isainfo -n`
-    rcp ${NETPERF_HOME}/${rmt_bin_dir}/* ${host}:/tmp
+#    rmt_bin_dir=`rsh ${host} isainfo -n`
+#    Grigory fix
+    rmt_bin_dir="bin"    
+# Try to fix
+
+    rcp -r ${NETPERF_HOME}/${rmt_bin_dir}/* ${host}:/tmp
+#    rsh ${host} `ls -ls /tmp`
+    echo "${STF_SUITE}/tools/maxq/${STF_BUILD_MODE}/start_netperf"
     rcp ${STF_SUITE}/tools/maxq/${STF_BUILD_MODE}/start_netperf ${host}:/tmp/start_netperf.sh
   done
 
