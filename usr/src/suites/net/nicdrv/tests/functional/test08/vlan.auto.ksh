@@ -1,4 +1,4 @@
-#!/usr/bin/ksh
+#!/usr/bin/ksh 
 #
 # CDDL HEADER START
 #
@@ -37,8 +37,8 @@
 #
 clean_plumb()
 {
-	plumb_unplumb_local_vlan unplumb 1 $g_max_vlan_id $g_drv $g_num
-	delete_local_vlan 1 $g_max_vlan_id $g_drv $g_num 
+	plumb_unplumb_local_vlan unplumb 2 $g_max_vlan_id $g_drv $g_num
+	delete_local_vlan 2 $g_max_vlan_id $g_drv $g_num
 }
 
 #
@@ -48,7 +48,7 @@ clean_plumb()
 #
 vlan_sanity_check() {
 	echo "Start sanity plumb test"
-	for vlan_id in 0 1 2 4093 4094 4095; do
+	for vlan_id in 2 4093 4094 4095; do
 		case "$vlan_id" in
 		0 )
 			create_local_vlan $vlan_id $vlan_id $g_drv $g_num
@@ -67,22 +67,21 @@ vlan_sanity_check() {
 				FAIL_FLAG=1
 			fi
 			;;
+			2 | 4093 | 4094 )
+                        create_local_vlan $vlan_id $vlan_id $g_drv $g_num
+                        if [ $? -ne 0 ]; then
+                                FAIL_FLAG=1
+                        fi
 
-		1 | 2 | 4093 | 4094 )
-			create_local_vlan $vlan_id $vlan_id $g_drv $g_num
-			if [ $? -ne 0 ]; then 
-				FAIL_FLAG=1
-			fi
-
-			plumb_unplumb_local_vlan plumb $vlan_id $vlan_id $g_drv $g_num
-			if [ $? -ne 0 ]; then 
-				FAIL_FLAG=1
-			fi
-			;;
+                        plumb_unplumb_local_vlan plumb $vlan_id $vlan_id $g_drv $g_num
+                        if [ $? -ne 0 ]; then
+                                FAIL_FLAG=1
+                        fi
+                        ;;
 		esac
 	done 
 	echo "Start sanity unplumb test"
-	for vlan_id in 0 1 2 4093 4094 4095; do
+	for vlan_id in 2 4093 4094 4095; do
 		case "$vlan_id" in
 		0 )
 			delete_local_vlan $vlan_id $vlan_id $g_drv $g_num
@@ -114,7 +113,7 @@ vlan_sanity_check() {
 		;;
 		esac
 	done 
-	echo "Tested vlanid 0 1 2 4093 4094 4095"
+	echo "Tested vlanid 2 4093 4094 4095"
 }
 
 #
@@ -127,8 +126,7 @@ vlan_sanity_check() {
 vlan_plumb_test() {
 	typeset g_vlan_id=$1
 	typeset g_vlan_end=$2
-	create_local_vlan 1 $g_vlan_end $g_drv $g_num
-
+	create_local_vlan 2 $g_vlan_end $g_drv $g_num
 	while true; do
 		[ $g_vlan_id -gt $g_vlan_end ] && break
 		(( vppa = g_vlan_id * 1000 ))
@@ -186,13 +184,13 @@ vlan_plumb_test() {
 		esac
 		(( g_vlan_id -= 1 ))
 	done
-	(( g_vlan_end = g_vlan_end - g_vlan_id ))
 	echo "*****************************************************"
 	echo   unplumb $g_vlan_end ppa successd on driver $g_drv !
 	echo "*****************************************************"
 	sleep 5
 	echo "start id is $g_vlan_id end id is $g_vlan_end"
-	delete_local_vlan 1 $g_vlan_end $g_drv $g_num 
+	delete_local_vlan 2 $g_vlan_end $g_drv $g_num
+	(( g_vlan_end = g_vlan_end - g_vlan_id ))
 
 }
 
@@ -209,25 +207,25 @@ cleanup_vlan() {
 	pkill ftp.auto
 	pkill Corrupt.auto
 	pkill MAXQ.auto
-	plumb_unplumb_local_vlan unplumb 1 $g_vlan_num $g_drv $g_num
+	plumb_unplumb_local_vlan unplumb 2 $g_vlan_num $g_drv $g_num
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:unplumb local vlans failed"
 	fi
 
-	plumb_unplumb_remote_vlan unplumb 1 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host
+	plumb_unplumb_remote_vlan unplumb 2 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:unplumb remote vlans failed"
 	fi
 
-	delete_local_vlan 1 $g_vlan_num $g_drv $g_num 
+	delete_local_vlan 2 $g_vlan_num $g_drv $g_num
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:delete local vlans failed"
 	fi
 
-	delete_remote_vlan 1 $g_vlan_num $g_drv $g_num_rm $g_rm_host
+	delete_remote_vlan 2 $g_vlan_num $g_drv $g_num_rm $g_rm_host
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:delete remote vlans failed"
@@ -242,32 +240,32 @@ cleanup_vlan() {
 # Arguments:
 #
 setup_vlan() {
-	create_local_vlan 1 $g_vlan_num $g_drv $g_num
+
+	create_local_vlan 2 $g_vlan_num $g_drv $g_num
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:create local vlans failed"
 	fi
 
-	plumb_unplumb_local_vlan plumb 1 $g_vlan_num $g_drv $g_num
+	plumb_unplumb_local_vlan plumb 2 $g_vlan_num $g_drv $g_num
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:plumb local vlans failed"
 	fi
-	local_host=$(set_vlan_local_ip_addr $g_vlan_subnet 1 $g_vlan_num $g_drv $g_num)
+	local_host=$(set_vlan_local_ip_addr $g_vlan_subnet 2 $g_vlan_num $g_drv $g_num)
 
-	create_remote_vlan 1 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host
+	create_remote_vlan 2 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:create remote vlans failed"
 	fi
 
-	plumb_unplumb_remote_vlan plumb 1 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host
+	plumb_unplumb_remote_vlan plumb 2 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host
 	if [ $? -ne 0 ]; then
 		FAIL_FLAG=1
 		echo "ERROR:plumb remote vlans failed"
 	fi
-	remote_host=$(set_vlan_remote_ip_addr $g_vlan_subnet \
-	    1 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host)
+	remote_host=$(set_vlan_remote_ip_addr $g_vlan_subnet 2 $g_vlan_num $g_drv_rm $g_num_rm $g_rm_host) 
 
 	echo "*****show local ip interface*****"
 	ifconfig -a
@@ -341,16 +339,12 @@ ftp_test() {
 	typeset remote_host=$5
 
 	cd ${FTP_PATH}
-	echo ${FTP_PATH}/ftp.auto \
-	    -r $remote_host -s 100m -t $g_Time -P $g_RmPASS \
-	    -m "root@localhost" -p $g_drv -e 1
-
 	${FTP_PATH}/ftp.auto \
-	    -r $remote_host -s 100m -t $g_Time -P $g_Rmpass \
-	    -m "root@localhost" -p $g_drv -e 1
+	 -r $remote_host -s 100m -t $g_Time -P $g_Rmpass \
+	 -m "root@localhost" -p $g_drv -e 1
 	if [ $? -ne 0 ]; then
 	echo  "vlan: ftp test failed!"
-		FAIL_FLAG=1
+	FAIL_FLAG=1
 	else
 		echo  "vlan: ftp test succeed!"
 	fi
@@ -372,9 +366,6 @@ nfs_test() {
 	typeset local_host=$3
 	typeset remote_host=$4
 	typeset OLD_PATH=`pwd`
-	echo ${NFS_PATH}/Corrupt.auto \
-	    -c $remote_host -s $local_host -n 1 -t $g_Time \
-	    -d bi -e "root@localhost" -p $g_drv -m udp -r no
 	${NFS_PATH}/Corrupt.auto \
 	    -c $remote_host -s $local_host -n 1 -t $g_Time \
 	    -d bi -e "root@localhost" -p $g_drv -m udp -r no
@@ -407,20 +398,23 @@ g_max_vlan_id=$(get_parameter VLAN_ID_MAX)
 local_host=""
 remote_host=""
 
-trap "cleanup_vlan; exit 1" 1 2 3 9 15
+trap "cleanup_vlan; exit 1" 2 3 9 15
 
+check_tools_path
 
 setup_vlan
-check_tools_path
+
+
 ftp_test $g_Time $g_drv $g_pass "$local_host" "$remote_host"
 nfs_test $g_Time $g_drv "$local_host" "$remote_host"
 maxq_test $g_Time $g_drv "$local_host" "$remote_host"
 
-cleanup_vlan
 vlan_sanity_check
-trap "clean_plumb; exit 1" 1 2 3 9 15
+cleanup_vlan
+trap "clean_plumb; exit 1" 2 3 9 15
 
-vlan_plumb_test 1 $g_max_vlan_id
+vlan_plumb_test 2 $g_max_vlan_id
+
 if [ $FAIL_FLAG -ne 0 ]; then
 	echo  "vlan: VALN test failed!"
 	exit 1
