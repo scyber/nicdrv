@@ -41,7 +41,7 @@ print_test_env()
 	echo "------------------------------------------"
 	uname -a
 	cat /etc/motd | grep bfu
-	cat /etc/release | grep Solaris | sed -e "s/[ ][ ]//g"
+	cat /etc/release | grep "Open Storage Appliance" | sed -e "s/[ ][ ]//g"	
 	modinfo | grep -w $TST_INT
 	if [ $SYSINFO_PRINT = "yes" ]; then
 		ifconfig -a
@@ -51,15 +51,17 @@ print_test_env()
 	echo "------------------------------------------"
 	echo "----- Print Remote Host Configuration ----"
 	echo "------------------------------------------"
+	sleep 10	
 	rsh -n -l root $RMT_HST uname -a
 	rsh -n -l root $RMT_HST cat /etc/motd | grep bfu
-	rsh -n -l root $RMT_HST cat /etc/release | \
-		grep Solaris | sed -e "s/[ ][ ]//g"
+	rsh -n -l root $RMT_HST cat /etc/release | grep "Open Storage Appliance" | sed -e "s/[ ][ ]//g" 
 	rsh -n -l root $RMT_HST modinfo | grep -w $RMT_INT
+
 	if [ $SYSINFO_PRINT = "yes" ]; then
 		rsh -n -l root $1 ifconfig -a
 		rsh -n -l root $1 netstat -rn
 		rsh -n -l root $1 prtconf -vp
+		
 	fi
 	echo "------------------------------------------"
 }
@@ -870,7 +872,7 @@ time_statistics() {
 		return 3
 	fi
 	time_use=$(gawk '/real/{print $2}' /tmp/time.log)
-	ret=$(gawk -v a=$time_use -v b=$boundary 'BEGIN{print(a>b)?"1":"0"}')
+	ret=$(gawk -v a=$time_use -v b=$boundary 'BEGIN {print(a>b)? "1":"0"}')
 	cat /tmp/time.log
 	rm /tmp/time.log
 	return $ret
@@ -894,8 +896,7 @@ create_local_vlan()
 	if [ $? -eq 0 ]; then
 		while true; do
 			[ $vlan_start -gt $vlan_end ] && break
-			dladm create-vlan -t -l $g_drv$g_base_ppa -v $vlan_start \
-			    > /dev/null 2>&1
+			dladm create-vlan -t -l $g_drv$g_base_ppa -v $vlan_start > /dev/null 2>&1
 			if [ $? -ne 0 ]; then
 				echo "ERROR:create vlan id $vlan_start failed"
 				fail_flag=1
@@ -927,8 +928,7 @@ create_remote_vlan()
 	if [ $error -eq 0 ]; then
 		while true; do
 			[ $vlan_start -gt $vlan_end ] && break
-			exec_rshcmd $rm_ip "dladm create-vlan -t -l \
-			    $g_drv_rm$g_base_ppa_rm -v $vlan_start"
+			exec_rshcmd $rm_ip "dladm create-vlan -t -l $g_drv_rm$g_base_ppa_rm -v $vlan_start"	
 			if [ $? -ne 0 ]; then 
 				fail_flag=1	
 			fi
@@ -1247,6 +1247,7 @@ plumb_unplumb_local_vnic() {
 	typeset count=$2
 	typeset g_base_name=$3
 	typeset j=0
+	
 	typeset fail_flag=0
 	while [ $j -lt $count ]; do
 		if [ $command == "plumb" ]; then
@@ -1284,6 +1285,7 @@ plumb_unplumb_remote_vnic() {
 	typeset g_base_name=$3
 	typeset rm_ip=$4
 	typeset j=0
+	
 	typeset fail_flag=0
 	while [ $j -lt $count ]; do
 		if [ $command == "plumb" ]; then
@@ -1338,6 +1340,7 @@ delete_local_vnic() {
 #
 delete_remote_vnic() {
 	typeset j=0
+	
 	typeset count=$1
 	typeset g_base_name=$2
 	typeset rm_ip=$3
@@ -1366,6 +1369,7 @@ set_vnic_local_ip_addr() {
 	typeset count=$2
 	typeset g_base_name=$3
 	typeset j=0
+	
 	typeset fail_flag=0
 	while [ $j -lt $count ]; do
 		exec_cmd "ifconfig ${g_base_name}${j} ${base_ip}.${j}.1/24 up"
@@ -1395,6 +1399,7 @@ set_vnic_remote_ip_addr() {
 	typeset g_base_name=$3
 	typeset rm_ip=$4
 	typeset j=0
+	
 	typeset fail_flag=0
 	while [ $j -lt $count ]; do
 		exec_rshcmd $rm_ip "ifconfig ${g_base_name}${j} ${base_ip}.${j}.2/24 up"
