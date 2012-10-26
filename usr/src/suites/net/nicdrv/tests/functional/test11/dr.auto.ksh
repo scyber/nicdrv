@@ -66,11 +66,11 @@ do_cfgadm_test()
 		SUPPORT_UNCONFIGURE=true
 	fi
 
-	cfgadm -f -c disconnect $ap_id
-	if [ $? -eq 0 ]; then
-		echo "$ap_id support cfgadm -f -c disconnect command"
-		SUPPORT_DISCONNECT=true
-	fi
+#	cfgadm -f -c disconnect $ap_id
+#	if [ $? -eq 0 ]; then
+#		echo "$ap_id support cfgadm -f -c disconnect command"
+#		SUPPORT_DISCONNECT=true
+#	fi
 	
 	if [ "$SUPPORT_UNCONFIGURE" = "false" ] &&  [ "$SUPPORT_DISCONNECT" = "false" ]; then
 		test_fail "$ap_id doesn't support dynamic reconfiguration"
@@ -80,12 +80,12 @@ do_cfgadm_test()
 	while [ $count -lt $RUN_TIME ] ; do
 
 
-		if [ "$SUPPORT_DISCONNECT" = "true" ]; then
-			cfgadm -c connect $ap_id
-			if [ $? -ne 0 ]; then
-				test_fail "cfgadm -c connect $ap_id failed" 
-			fi
-		fi
+#		if [ "$SUPPORT_DISCONNECT" = "true" ]; then
+#			cfgadm -c connect $ap_id
+#			if [ $? -ne 0 ]; then
+#				test_fail "cfgadm -c connect $ap_id failed" 
+#			fi
+#		fi
 
 		if [ "$SUPPORT_UNCONFIGURE" = "true" ]; then
 			cfgadm -c configure $ap_id
@@ -119,23 +119,24 @@ do_cfgadm_test()
 				test_fail "cfgadm -c unconfigure $ap_id failed"
 			fi
 		fi
-
-		if [ "$SUPPORT_DISCONNECT" = "true" ]; then
-			cfgadm -f -c disconnect $ap_id
-			if [ $? -ne 0 ]; then
-				test_fail "cfgadm -c disconnect $ap_id failed"
-			fi
-		fi
+# Disconnect test is commented due to incorrect work with VM network cards
+#
+#		if [ "$SUPPORT_DISCONNECT" = "true" ]; then
+#			cfgadm -f -c disconnect $ap_id
+#			if [ $? -ne 0 ]; then
+#				test_fail "cfgadm -c disconnect $ap_id failed"
+#			fi
+#		fi
 
 		count=`expr $count + 1`
 	done
 
-	if [ "$SUPPORT_DISCONNECT" = "true" ]; then
-		cfgadm -f -c connect $ap_id
-		if [ $? -ne 0 ]; then
-			test_fail "cfgadm -c connect $ap_id failed"
-		fi
-	fi
+#	if [ "$SUPPORT_DISCONNECT" = "true" ]; then
+#		cfgadm -f -c connect $ap_id
+#		if [ $? -ne 0 ]; then
+#			test_fail "cfgadm -c connect $ap_id failed"
+#		fi
+#	fi
 
 	if [ "$SUPPORT_UNCONFIGURE" = "true" ]; then
 		cfgadm -c configure $ap_id
@@ -190,7 +191,8 @@ int_plumb_dhcp()
 int_unplumb_dhcp()
 {
         echo "unplumb $1 with DHCP"
-        ifconfig $1 dhcp drop
+#	We don't need to drop ip address
+#        ifconfig $1 dhcp drop
         ifconfig $1 unplumb
 }
 
